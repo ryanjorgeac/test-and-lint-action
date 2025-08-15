@@ -1,0 +1,97 @@
+name: 'Lint and Test'
+description: 'Lint and Test for JavaScript/TypeScript/Python/Java codebases'
+
+inputs:
+    language:
+        description: 'The programming language of the codebase (e.g., "javascript", "typescript", "python", "java")'
+        required: true
+        options:
+            - 'javascript'
+            - 'typescript'
+            - 'python'
+            - 'java'
+    lang_version:
+        description: 'The version of the programming language to use (e.g., "20" for Node.js, "3.x" for Python, "17" for Java)'
+        required: false
+    dependecies_file:
+        description: 'The file containing dependencies to install'
+        required: true
+        options: 
+            - 'package.json'
+            - 'requirements.txt'
+            - 'pom.xml'
+    tests_path:
+        description: 'The directory containing tests to run'
+        required: false
+        default: 'src/tests'
+
+runs:
+    using: 'composite'
+    steps:
+        - uses: actions/checkout@v4
+
+        ## Setup JavaScript and TypeScript action
+        - name: Set up Node.js
+          if: ${{ inputs.language == 'javascript' || inputs.language == 'typescript' }}
+          uses: actions/setup-node@v3
+          with:
+              node-version: ${{ inputs.lang_version || '20' }}
+              cache: 'npm'
+        - name: Install Dependencies
+          if: ${{ inputs.language == 'javascript' || inputs.language == 'typescript' }}
+          run: npm install ${{ inputs.dependecies_file }}
+
+        - name: Run Linter
+          if: ${{ inputs.language == 'javascript' || inputs.language == 'typescript' }}
+          run: |
+            npx eslint eslint \"{src,apps,libs,test}/**/*.ts\"
+
+        - name: Run Tests
+          if: ${{ inputs.language == 'javascript' || inputs.language == 'typescript' }}
+          run: |
+            npx jest --runTestsByPath ${{ inputs.tests_path }}
+            npx jest --coverage
+        
+
+        ## Setup Python Action
+        - name: Set up Python
+          if: ${{ inputs.language == 'python' }}
+          uses: actions/setup-python@v4
+          with:
+              python-version: ${{ inputs.lang_version || '3.x' }}
+        - name: Install Python Dependencies
+          if: ${{ inputs.language == 'python' }}
+          run: |
+              python -m pip install --upgrade pip
+              pip install -r ${{ inputs.dependecies_file }}
+
+        - name: Run Python Linter
+          if: ${{ inputs.language == 'python' }}
+          run: |
+              pip install flake8
+              flake8 .
+        
+        - name: Run Python Tests
+          if: ${{ inputs.language == 'python' }}
+          run: |
+              pip install pytest
+              pytest 
+
+                ## Setup Java Action
+        - name: Set up JDK
+          if: ${{ inputs.language == 'java' }}
+          uses: actions/setup-java@v4
+          with:
+              java-version: ${{ inputs.lang_version || '17' }}
+              distribution: 'temurin'
+
+        - name: Install Maven Dependencies
+          if: ${{ inputs.language == 'java' }}
+          run: mvn install -f ${{ inputs.dependecies_file }}
+
+        - name: Run Java Tests
+          if: ${{ inputs.language == 'java' }}
+          run: mvn -Dtest=${{ inputs.dependecies_file }} test
+
+
+        
